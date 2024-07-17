@@ -1,54 +1,32 @@
 #!/usr/bin/env python3
-"""
-Module to provide a cache decorator for web page retrieval.
-"""
+""" Redis Module """
 
-import requests
+from functools import wraps
 import redis
+import requests
 from typing import Callable
 
-redis_client = redis.Redis()
+redis_ = redis.Redis()
 
 
-def cache_decorator(func: Callable) -> Callable:
-    """
-    Decorator to cache the result of a function
-    with a specified expiration time.
-    """
-    def wrapper(*args, **kwargs):
-        """
-        Generate a cache key based on the function name and arguments
-        """
-        cache_key = f"cache:{func.__name__}:{args}"
-
-        cached_result = redis_client.get(cache_key)
-        if cached_result:
-            return cached_result.decode('utf-8')
-
-        result = func(*args, **kwargs)
-
-        redis_client.setex(cache_key, 10, result)
-
-        return result
+def count_requests(method: Callable) -> Callable:
+    """ Decortator for counting """
+    @wraps(method)
+    def wrapper(url):  # sourcery skip: use-named-expression
+        """ Wrapper for decorator """
+        redis_.incr(f"count:{url}")
+        cached_html = redis_.get(f"cached:{url}")
+        if cached_html:
+            return cached_html.decode('utf-8')
+        html = method(url)
+        redis_.setex(f"cached:{url}", 10, html)
+        return html
 
     return wrapper
 
 
-@cache_decorator
+@count_requests
 def get_page(url: str) -> str:
-    """
-    Get the HTML content of a particular URL
-    and cache the result with an expiration time of 10 seconds.
-    """
-    redis_client.incr(f"count:{url}")
-
-    cached_data = redis_client.get(url)
-    if cached_data:
-        return cached_data.decode('utf-8')
-
-    response = requests.get(url)
-    html_content = response.text
-
-    redis_client.setex(url, 10, html_content)
-
-    return html_content
+    """ Obtain the HTML content of a  URL """
+    req = requests.get(url)
+    return req.text
