@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-'''A module with tools for request caching and tracking.
-'''
+"""A module with tools for request caching and tracking.
+"""
 import redis
 import requests
 from functools import wraps
